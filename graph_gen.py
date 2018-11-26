@@ -20,12 +20,12 @@ class Graph(ABC):
         plt.waitforbuttonpress()
 
     @abstractmethod
-    def generate(self, x_range=[- math.pi * 2, math.pi * 2], step=0.001):
+    def generate(self, x_range, step):
         pass
 
 
 class SinGraph(Graph):
-    def generate(self, x_range=[- math.pi * 2, math.pi * 2], step=0.001):
+    def generate(self, x_range=[- math.pi * 2 * 4, math.pi * 2 * 4], step=0.05):
         return [(x, math.sin(x)) for x in frange(x_range[0], x_range[1] + step, step)]
 
 class SinGraphRandom(Graph):
@@ -35,7 +35,7 @@ class SinGraphRandom(Graph):
 
         self.shift = random.random() * 2 * math.pi
 
-    def generate(self, x_range=[- math.pi * 2, math.pi * 2], step=0.001):
+    def generate(self, x_range=[- math.pi * 2 * 4, math.pi * 2 * 4], step=0.05):
         return [(x, self.a * math.sin(self.b * (x + self.shift))) for x in frange(x_range[0], x_range[1] + step, step)]
 
 

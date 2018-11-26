@@ -54,9 +54,9 @@ class MyDataset(Dataset):
 
 
 
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.005
 BATCH_SIZE = 100
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200
 SEQUENCE_LENGTH = 50
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -98,8 +98,9 @@ def generate_predictions(model, dataloader, init_sequence_length):
     model.eval()
 
     h_state = model.create_h0(1).to(DEVICE)  # Initial state is all zero.
-    initial_input = next(iter(dataloader))[0][0,:,:].to(DEVICE)  # Grab one initial sequence of data for use in prediction.
-    initial_input.data.unsqueeze_(1)  # Need to add our batch dimension back in.
+    batch_x, batch_y = dataloader.dataset[0]
+
+    initial_input = torch.Tensor(batch_x[:,np. newaxis, :]).to(DEVICE)\
 
     final_outputs = []
     for _ in range(len(dataloader.dataset)-init_sequence_length):
@@ -117,8 +118,9 @@ def generate_predictions(model, dataloader, init_sequence_length):
         yy = list(map(float, yy))
         plt.scatter(x=xx, y=yy, label=label_name)
 
-    scatter(final_outputs, 'predicted')
     scatter(dataloader.dataset.split[init_sequence_length:], 'actual')
+    scatter(final_outputs, 'predicted')
+
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.savefig('sin_wave.png')
     plt.show()
