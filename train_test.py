@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+import matplotlib.pyplot as plt
 
 from graph_gen import SinGraph
 
@@ -91,6 +92,39 @@ def train_model(model, dataloader, loss_function, optimizer, epochs):
     torch.save(model.state_dict(), 'trained_rnn_model.pt')
 
 
+
+def generate_predictions(model, dataloader, init_sequence_length):
+    """From a trained model predict """
+    model.eval()
+
+    h_state = model.create_h0(1).to(DEVICE)  # Initial state is all zero.
+    initial_input = next(iter(dataloader))[0][0,:,:].to(DEVICE)  # Grab one initial sequence of data for use in prediction.
+    initial_input.data.unsqueeze_(1)  # Need to add our batch dimension back in.
+
+    final_outputs = []
+    for _ in range(len(dataloader.dataset)-init_sequence_length):
+
+        output, _ = model(initial_input, h_state)
+        final_outputs.append(output.cpu().data.squeeze_())
+
+        # Pop off the first element of sequence then add on our latest generated point (use our predicted values in next predictions).
+        initial_input.data[0:init_sequence_length-1, :, :] = initial_input.data[1:init_sequence_length, :, :]
+        initial_input.data[init_sequence_length-1, :, :] = output.data
+
+    def scatter(points, label_name):
+        xx, yy = zip(*points)
+        xx = list(map(float, xx))
+        yy = list(map(float, yy))
+        plt.scatter(x=xx, y=yy, label=label_name)
+
+    scatter(final_outputs, 'predicted')
+    scatter(dataloader.dataset.split[init_sequence_length:], 'actual')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    plt.savefig('sin_wave.png')
+    plt.show()
+
+    return final_outputs
+
 def main():
     graph = SinGraph()
 
@@ -112,8 +146,9 @@ def main():
 
     train_model(rnn, dataloader=train_dataloder, loss_function=loss_function, optimizer=optimizer, epochs=NUM_EPOCHS)
 
-    # Use trained model to make predictions based on an initial sequence of points.
-    # generate_predictions(rnn, val_dataloader, init_sequence_length=SEQUENCE_LENGTH)
+    # FIXME: TODO:
+    # trained data!!!
+    generate_predictions(rnn, train_dataloder, init_sequence_length=SEQUENCE_LENGTH)
 
 
 if __name__ == '__main__':
