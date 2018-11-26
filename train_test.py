@@ -102,9 +102,8 @@ def main():
     split_test = points[middle:]
 
 
-    train_dataloder = DataLoader(MyDataset(split_train, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True)
-    test_dataloder = DataLoader(MyDataset(split_train, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True)
-
+    train_dataloder = DataLoader(MyDataset(split_train, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    test_dataloder = DataLoader(MyDataset(split_test, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     rnn = MyRNN(input_size=2, hidden_size=8, num_layers=1).to(DEVICE)
 
