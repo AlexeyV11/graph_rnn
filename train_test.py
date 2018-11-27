@@ -17,13 +17,14 @@ BATCH_SIZE = 100
 NUM_EPOCHS = 250
 SEQUENCE_LENGTH = 75
 HIDDEN_NEURONS=10
+NUM_LAYERS = 1
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-TYPE = nn.RNN # nn.GRU or nn.GRU
+TYPE = nn.GRU # nn.GRU or nn.GRU
 
 
 class MyRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, dropout_rate=0.00):
+    def __init__(self, input_size, hidden_size, num_layers=NUM_LAYERS, dropout_rate=0.2):
         super(MyRNN, self).__init__()
 
         self.num_layers = num_layers
