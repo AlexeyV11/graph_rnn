@@ -11,6 +11,17 @@ import matplotlib.pyplot as plt
 
 from graph_gen import SinGraph
 
+
+LEARNING_RATE = 0.01
+BATCH_SIZE = 100
+NUM_EPOCHS = 250
+SEQUENCE_LENGTH = 75
+HIDDEN_NEURONS=10
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+TYPE = nn.RNN # nn.GRU or nn.GRU
+
+
 class MyRNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=1, dropout_rate=0.00):
         super(MyRNN, self).__init__()
@@ -18,7 +29,7 @@ class MyRNN(nn.Module):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         #
-        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
+        self.rnn = TYPE(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
         self.out = nn.Linear(hidden_size, 2)
 
     def init_hidden_state(self, batch_size):
@@ -33,7 +44,6 @@ class MyRNN(nn.Module):
 
 
 class MyDataset(Dataset):
-    """PyTorch dataset class so we can use their Dataloaders."""
 
     # split is an array of [(x0, y0), ... , (xn, yn)]
     def __init__(self, split, seq_length):
@@ -53,53 +63,33 @@ class MyDataset(Dataset):
             return np.array(input, dtype='float32'), np.array(output, dtype='float32')
 
 
-
-LEARNING_RATE = 0.005
-BATCH_SIZE = 100
-NUM_EPOCHS = 500
-SEQUENCE_LENGTH = 50
-HIDDEN_NEURONS=4
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
 def train_model(model, dataloader, loss_function, optimizer, epochs):
     model.train()
     loss_all = []
 
-
-    # Train loop.
     for epoch in range(epochs):
         for x_batch, y_batch in dataloader:
             model.init_hidden_state(BATCH_SIZE)
-            model.hidden_state = model.hidden_state.detach()
+            optimizer.zero_grad()
 
             x_batch = x_batch.permute([1, 0, 2])
             y_batch = y_batch.permute([1, 0, 2])
 
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
 
-            # Zero the gradients.
-            optimizer.zero_grad()
-
-            # Run our chosen rnn model.
             output = model(x_batch)
 
-            # Calculate loss.
             loss = loss_function(output, y_batch)
 
-            # Backprop and perform update step.
             loss.backward()
             optimizer.step()
 
         loss_all.append(loss.cpu().data.numpy())
-        print('train loss epoch{}: '.format(epoch), loss.cpu().data.numpy())
 
-    torch.save(model.state_dict(), 'trained_rnn_model.pt')
-
+        print('Training loss for epoch {} : '.format(epoch), loss.cpu().data.numpy())
 
 
-def generate_predictions(model, dataloader, init_sequence_length):
-    """From a trained model predict """
+def test_model(model, dataloader, init_sequence_length):
     model.eval()
 
     model.init_hidden_state(1)
@@ -151,10 +141,7 @@ def main():
     loss_function = nn.MSELoss()
 
     train_model(rnn, dataloader=dataloder, loss_function=loss_function, optimizer=optimizer, epochs=NUM_EPOCHS)
-
-    # FIXME: TODO:
-    # trained data!!!
-    generate_predictions(rnn, dataloder, init_sequence_length=SEQUENCE_LENGTH)
+    test_model(rnn, dataloder, init_sequence_length=SEQUENCE_LENGTH)
 
 
 if __name__ == '__main__':
