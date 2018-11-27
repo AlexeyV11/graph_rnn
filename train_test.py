@@ -12,24 +12,24 @@ import matplotlib.pyplot as plt
 from graph_gen import SinGraph
 
 class MyRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, dropout_rate=0.05):
+    def __init__(self, input_size, hidden_size, num_layers=1, dropout_rate=0.00):
         super(MyRNN, self).__init__()
 
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         #
-        self.rnn = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
+        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
         self.out = nn.Linear(hidden_size, 2)
 
-    # input of shape (seq_len, batch, input_size):
-    # h_0 of shape (num_layers * num_directions, batch, hidden_size):
-    def forward(self, x, h_0):
-        result, h_state = self.rnn(x, h_0)
-        y_last = self.out(result[-1, :, :]) # last output
-        return y_last, h_state
+    def init_hidden_state(self, batch_size):
+        self.hidden_state = torch.zeros([self.num_layers, batch_size, self.hidden_size]).to(DEVICE)
 
-    def create_h0(self, batch_size):
-        return torch.zeros([self.num_layers, batch_size, self.hidden_size]).to(DEVICE)
+    # input of shape (seq_len, batch, input_size):
+    # hidden_state of shape (num_layers * num_directions, batch, hidden_size):
+    def forward(self, x):
+        result, self.hidden_state = self.rnn(x, self.hidden_state)
+        result = self.out(result[:, :, :])
+        return result
 
 
 class MyDataset(Dataset):
@@ -48,16 +48,17 @@ class MyDataset(Dataset):
             input = self.split[idx:idx + self.seq_length]
 
             # xn+1 yn+1
-            output = self.split[idx + self.seq_length]
+            output = self.split[idx+1:idx + self.seq_length+1]
 
             return np.array(input, dtype='float32'), np.array(output, dtype='float32')
 
 
 
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.005
 BATCH_SIZE = 100
 NUM_EPOCHS = 500
 SEQUENCE_LENGTH = 50
+HIDDEN_NEURONS=4
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -65,19 +66,23 @@ def train_model(model, dataloader, loss_function, optimizer, epochs):
     model.train()
     loss_all = []
 
+
     # Train loop.
     for epoch in range(epochs):
         for x_batch, y_batch in dataloader:
+            model.init_hidden_state(BATCH_SIZE)
+            model.hidden_state = model.hidden_state.detach()
+
             x_batch = x_batch.permute([1, 0, 2])
+            y_batch = y_batch.permute([1, 0, 2])
 
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
-            h_state = model.create_h0(BATCH_SIZE)
 
             # Zero the gradients.
             optimizer.zero_grad()
 
             # Run our chosen rnn model.
-            output, _ = model(x_batch, h_state)
+            output = model(x_batch)
 
             # Calculate loss.
             loss = loss_function(output, y_batch)
@@ -97,31 +102,34 @@ def generate_predictions(model, dataloader, init_sequence_length):
     """From a trained model predict """
     model.eval()
 
-    h_state = model.create_h0(1).to(DEVICE)  # Initial state is all zero.
+    model.init_hidden_state(1)
+
     batch_input, batch_y = dataloader.dataset[0]
 
     initial_input = torch.Tensor(batch_input[:,np. newaxis, :]).to(DEVICE)\
 
     final_outputs = []
-    for _ in range(len(dataloader.dataset)-init_sequence_length):
 
-        output, _ = model(initial_input, h_state)
+    output = model(initial_input)
+    output = output[-1, :, :]
+    final_outputs.append(output.cpu().data.squeeze_())
+    output = output[np.newaxis, :, :]
+
+    for _ in range(len(dataloader.dataset.split)-init_sequence_length):
+        output = model(output)
         final_outputs.append(output.cpu().data.squeeze_())
-
-        # Pop off the first element of sequence then add on our latest generated point (use our predicted values in next predictions).
-        initial_input.data[0:init_sequence_length-1, :, :] = initial_input.data[1:init_sequence_length, :, :]
-        initial_input.data[init_sequence_length-1, :, :] = output.data
 
     def scatter(points, label_name):
         xx, yy = zip(*points)
         xx = list(map(float, xx))
         yy = list(map(float, yy))
-        plt.plot(yy, label=label_name)
+        plt.plot(yy, linestyle='--', marker='.', label=label_name)
+        #plt.scatter(x=xx, y=yy, label=label_name)
 
     scatter(dataloader.dataset.split[init_sequence_length:], 'actual')
     scatter(final_outputs, 'predicted')
 
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    plt.legend(bbox_to_anchor=(.90, 1.05), loc=2, borderaxespad=0.)
     plt.savefig('sin_wave.png')
     plt.show()
 
@@ -131,26 +139,22 @@ def main():
     graph = SinGraph()
 
     points = graph.generate()
+    split = points
 
-    middle = int(len(points) * 0.8)
+    print(len(points))
 
-    split_train = points[0:middle]
-    split_test = points[middle:]
+    dataloder = DataLoader(MyDataset(split, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-
-    train_dataloder = DataLoader(MyDataset(split_train, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    test_dataloder = DataLoader(MyDataset(split_test, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-
-    rnn = MyRNN(input_size=2, hidden_size=8, num_layers=1).to(DEVICE)
+    rnn = MyRNN(input_size=2, hidden_size=HIDDEN_NEURONS, num_layers=1).to(DEVICE)
 
     optimizer = torch.optim.Adam(rnn.parameters(), lr=LEARNING_RATE)
     loss_function = nn.MSELoss()
 
-    train_model(rnn, dataloader=train_dataloder, loss_function=loss_function, optimizer=optimizer, epochs=NUM_EPOCHS)
+    train_model(rnn, dataloader=dataloder, loss_function=loss_function, optimizer=optimizer, epochs=NUM_EPOCHS)
 
     # FIXME: TODO:
     # trained data!!!
-    generate_predictions(rnn, train_dataloder, init_sequence_length=SEQUENCE_LENGTH)
+    generate_predictions(rnn, dataloder, init_sequence_length=SEQUENCE_LENGTH)
 
 
 if __name__ == '__main__':
