@@ -166,14 +166,14 @@ def main():
     NUM_LAYERS = 1
 
     # time experiment
-    experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
-               show_time=True, show_graphs=False, show_epoch_freq=25)
-    experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
-               show_time=True, show_graphs=False, show_epoch_freq=25)
+    #experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
+    #           show_time=True, show_graphs=False, show_epoch_freq=25)
+    #experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
+    #           show_time=True, show_graphs=False, show_epoch_freq=25)
 
 
     # graph experiment; how good we are able to reproduce training set
-    experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS, show_time=False, show_graphs=True, show_epoch_freq=25)
+    #experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS, show_time=False, show_graphs=True, show_epoch_freq=25)
     experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS, show_time=False, show_graphs=True, show_epoch_freq=25)
 
 
