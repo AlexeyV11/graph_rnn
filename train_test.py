@@ -18,7 +18,7 @@ class MyRNN(nn.Module):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         #
-        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
+        self.rnn = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
         self.out = nn.Linear(hidden_size, 2)
 
     # input of shape (seq_len, batch, input_size):
@@ -54,9 +54,9 @@ class MyDataset(Dataset):
 
 
 
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.01
 BATCH_SIZE = 100
-NUM_EPOCHS = 200
+NUM_EPOCHS = 500
 SEQUENCE_LENGTH = 50
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -98,9 +98,9 @@ def generate_predictions(model, dataloader, init_sequence_length):
     model.eval()
 
     h_state = model.create_h0(1).to(DEVICE)  # Initial state is all zero.
-    batch_x, batch_y = dataloader.dataset[0]
+    batch_input, batch_y = dataloader.dataset[0]
 
-    initial_input = torch.Tensor(batch_x[:,np. newaxis, :]).to(DEVICE)\
+    initial_input = torch.Tensor(batch_input[:,np. newaxis, :]).to(DEVICE)\
 
     final_outputs = []
     for _ in range(len(dataloader.dataset)-init_sequence_length):
@@ -116,7 +116,7 @@ def generate_predictions(model, dataloader, init_sequence_length):
         xx, yy = zip(*points)
         xx = list(map(float, xx))
         yy = list(map(float, yy))
-        plt.scatter(x=xx, y=yy, label=label_name)
+        plt.plot(yy, label=label_name)
 
     scatter(dataloader.dataset.split[init_sequence_length:], 'actual')
     scatter(final_outputs, 'predicted')

@@ -25,8 +25,13 @@ class Graph(ABC):
 
 
 class SinGraph(Graph):
-    def generate(self, x_range=[- math.pi * 2 * 4, math.pi * 2 * 4], step=0.05):
-        return [(x, math.sin(x)) for x in frange(x_range[0], x_range[1] + step, step)]
+    def generate(self, x_range=[- math.pi * 2 * 8, math.pi * 2 * 8], step=0.1):
+        #
+        #
+        # TODO: FIXME: we generate 0 for x
+        #
+        #
+        return [(0, math.sin(x)) for x in frange(x_range[0], x_range[1] + step, step)]
 
 class SinGraphRandom(Graph):
     def __init__(self):
