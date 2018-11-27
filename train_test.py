@@ -1,5 +1,7 @@
 import random
 import itertools
+import time
+
 import numpy as np
 
 import torch
@@ -15,7 +17,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class MyRNN(nn.Module):
-    def __init__(self, rnn_type, hidden_size, num_layers=1, dropout_rate=0.2):
+    def __init__(self, rnn_type, hidden_size, num_layers=1, dropout_rate=0.0):
         super(MyRNN, self).__init__()
 
         self.num_layers = num_layers
@@ -34,6 +36,8 @@ class MyRNN(nn.Module):
         result = self.out(result[:, :, :])
         return result
 
+    def get_description(self):
+        return self.rnn.__class__.__name__
 
 class MyDataset(Dataset):
 
@@ -55,11 +59,12 @@ class MyDataset(Dataset):
             return np.array(input, dtype='float32'), np.array(output, dtype='float32')
 
 
-def train_model(model, dataloader, loss_function, optimizer, batch_size, epochs):
+def train_model(model, dataloader, loss_function, optimizer, batch_size, epochs, show_time=False, show_epoch_freq=10):
     model.train()
     loss_all = []
 
-    for epoch in range(1,epochs+1):
+    time_total = 0
+    for epoch in range(0,epochs):
         for x_batch, y_batch in dataloader:
             model.init_hidden_state(batch_size)
             optimizer.zero_grad()
@@ -69,20 +74,25 @@ def train_model(model, dataloader, loss_function, optimizer, batch_size, epochs)
 
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
 
+            start = time.time()
+
             output = model(x_batch)
-
             loss = loss_function(output, y_batch)
-
             loss.backward()
             optimizer.step()
 
+            time_total += time.time() - start
+
         loss_all.append(loss.cpu().data.numpy())
 
-        if epoch % 10 == 0 or epoch == 1:
-            print('Training loss for epoch {} : '.format(epoch), loss.cpu().data.numpy())
+        if epoch % show_epoch_freq == 0:
+            print("Training loss for epoch {} : ".format(epoch), loss.cpu().data.numpy())
+
+    if show_time:
+        print("Compute training time {}".format(time_total))
 
 
-def test_model(model, dataloader, init_sequence_length):
+def test_model(model, dataloader, init_sequence_length, show_time=False, show_graphs=False):
     model.eval()
 
     model.init_hidden_state(1)
@@ -98,34 +108,45 @@ def test_model(model, dataloader, init_sequence_length):
     final_outputs.append(output.cpu().data.squeeze_())
     output = output[np.newaxis, :, :]
 
+    time_total = 0
     for _ in range(len(dataloader.dataset.split)-init_sequence_length):
+        start = time.time()
         output = model(output)
+        time_total += time.time() - start
+
         final_outputs.append(output.cpu().data.squeeze_())
 
-    def myplot(points, label_name):
-        plt.plot(points, linestyle='--', marker='.', label=label_name)
+    if show_time:
+        print("Compute testing time {}".format(time_total))
 
-    myplot(dataloader.dataset.split[init_sequence_length:], 'actual')
-    myplot(final_outputs, 'predicted')
+    if show_graphs:
+        def myplot(points, label_name):
+            plt.plot(points, linestyle='--', marker='.', label=label_name)
 
-    plt.legend(bbox_to_anchor=(.90, 1.05), loc=2, borderaxespad=0.)
-    plt.savefig('sin_wave.png')
-    plt.show()
+        myplot(dataloader.dataset.split[init_sequence_length:], 'actual')
+        myplot(final_outputs, 'predicted')
+
+        plt.legend(bbox_to_anchor=(.90, 1.05), loc=2, borderaxespad=0.)
+        plt.savefig("sin_wave_{}.png".format(model.get_description()))
+        plt.close()
+        #plt.show()
 
     return final_outputs
 
 
-def experiment(graph, rnn_type, seq_leng, batch_size, hidden_n, lyers_n, learning_rate, epochs_n):
+def experiment(graph, rnn_type, seq_leng, batch_size, hidden_n, layers_n, learning_rate, epochs_n, show_time=False, show_graphs=False, show_epoch_freq=10):
+
+    print("Tests for {}".format(rnn_type))
     split = graph.generate()
     dataloder = DataLoader(MyDataset(split, seq_leng), batch_size=batch_size, shuffle=True, drop_last=True)
 
-    rnn = MyRNN(rnn_type, hidden_size=hidden_n, num_layers=lyers_n).to(DEVICE)
+    rnn = MyRNN(rnn_type, hidden_size=hidden_n, num_layers=layers_n).to(DEVICE)
 
     optimizer = torch.optim.Adam(rnn.parameters(), lr=learning_rate)
     loss_function = nn.MSELoss()
 
-    train_model(rnn, dataloader=dataloder, loss_function=loss_function, optimizer=optimizer, batch_size = batch_size, epochs=epochs_n)
-    test_model(rnn, dataloder, init_sequence_length=seq_leng)
+    train_model(rnn, dataloader=dataloder, loss_function=loss_function, optimizer=optimizer, batch_size = batch_size, epochs=epochs_n, show_time=show_time, show_epoch_freq=show_epoch_freq)
+    test_model(rnn, dataloder, init_sequence_length=seq_leng, show_time=show_time, show_graphs=show_graphs)
 
 def main():
 
@@ -136,10 +157,16 @@ def main():
     HIDDEN_NEURONS=8
     NUM_LAYERS = 1
 
-    experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS)
-    experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS)
+    # time experiment
+    experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
+               show_time=True, show_graphs=False, show_epoch_freq=25)
+    experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, hidden_n=400, layers_n=5, learning_rate=LEARNING_RATE, epochs_n=50,
+               show_time=True, show_graphs=False, show_epoch_freq=25)
 
 
+    # graph experiment; how good we are able to reproduce training set
+    experiment(SinGraph(), nn.RNN, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS, show_time=False, show_graphs=True, show_epoch_freq=25)
+    experiment(SinGraph(), nn.GRU, SEQUENCE_LENGTH, BATCH_SIZE, HIDDEN_NEURONS, NUM_LAYERS, LEARNING_RATE, NUM_EPOCHS, show_time=False, show_graphs=True, show_epoch_freq=25)
 
 
 if __name__ == '__main__':
