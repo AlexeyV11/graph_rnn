@@ -12,26 +12,26 @@ import matplotlib.pyplot as plt
 from graph_gen import SinGraph
 
 
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.005
 BATCH_SIZE = 100
 NUM_EPOCHS = 250
 SEQUENCE_LENGTH = 75
-HIDDEN_NEURONS=10
+HIDDEN_NEURONS=8
 NUM_LAYERS = 1
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-TYPE = nn.GRU # nn.GRU or nn.GRU
+TYPE = nn.RNN # nn.GRU or nn.GRU
 
 
 class MyRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=NUM_LAYERS, dropout_rate=0.2):
+    def __init__(self, hidden_size, num_layers=NUM_LAYERS, dropout_rate=0.2):
         super(MyRNN, self).__init__()
 
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         #
-        self.rnn = TYPE(input_size=input_size, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
-        self.out = nn.Linear(hidden_size, 2)
+        self.rnn = TYPE(input_size=1, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
+        self.out = nn.Linear(hidden_size, 1)
 
     def init_hidden_state(self, batch_size):
         self.hidden_state = torch.zeros([self.num_layers, batch_size, self.hidden_size]).to(DEVICE)
@@ -73,8 +73,8 @@ def train_model(model, dataloader, loss_function, optimizer, epochs):
             model.init_hidden_state(BATCH_SIZE)
             optimizer.zero_grad()
 
-            x_batch = x_batch.permute([1, 0, 2])
-            y_batch = y_batch.permute([1, 0, 2])
+            x_batch = x_batch[:,:,np.newaxis].permute([1, 0, 2])
+            y_batch = y_batch[:,:,np.newaxis].permute([1, 0, 2])
 
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
 
@@ -97,7 +97,7 @@ def test_model(model, dataloader, init_sequence_length):
 
     batch_input, batch_y = dataloader.dataset[0]
 
-    initial_input = torch.Tensor(batch_input[:,np. newaxis, :]).to(DEVICE)\
+    initial_input = torch.Tensor(batch_input[:, np.newaxis, np.newaxis]).to(DEVICE)
 
     final_outputs = []
 
@@ -110,15 +110,11 @@ def test_model(model, dataloader, init_sequence_length):
         output = model(output)
         final_outputs.append(output.cpu().data.squeeze_())
 
-    def scatter(points, label_name):
-        xx, yy = zip(*points)
-        xx = list(map(float, xx))
-        yy = list(map(float, yy))
-        plt.plot(yy, linestyle='--', marker='.', label=label_name)
-        #plt.scatter(x=xx, y=yy, label=label_name)
+    def myplot(points, label_name):
+        plt.plot(points, linestyle='--', marker='.', label=label_name)
 
-    scatter(dataloader.dataset.split[init_sequence_length:], 'actual')
-    scatter(final_outputs, 'predicted')
+    myplot(dataloader.dataset.split[init_sequence_length:], 'actual')
+    myplot(final_outputs, 'predicted')
 
     plt.legend(bbox_to_anchor=(.90, 1.05), loc=2, borderaxespad=0.)
     plt.savefig('sin_wave.png')
@@ -136,7 +132,7 @@ def main():
 
     dataloder = DataLoader(MyDataset(split, SEQUENCE_LENGTH), batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-    rnn = MyRNN(input_size=2, hidden_size=HIDDEN_NEURONS, num_layers=1).to(DEVICE)
+    rnn = MyRNN(hidden_size=HIDDEN_NEURONS, num_layers=1).to(DEVICE)
 
     optimizer = torch.optim.Adam(rnn.parameters(), lr=LEARNING_RATE)
     loss_function = nn.MSELoss()

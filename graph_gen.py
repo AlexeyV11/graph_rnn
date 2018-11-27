@@ -15,8 +15,7 @@ class Graph(ABC):
 
     def plot(self, **kwargs):
         points = self.generate(**kwargs)
-        x, y = zip(*points)
-        plt.plot(x, y)
+        plt.plot(points)
         plt.waitforbuttonpress()
 
     @abstractmethod
@@ -26,22 +25,17 @@ class Graph(ABC):
 
 class SinGraph(Graph):
     def generate(self, x_range=[- math.pi * 2 * 8, math.pi * 2 * 8], step=0.1):
-        #
-        #
-        # TODO: FIXME: we generate 0 for x
-        #
-        #
-        return [(0, math.sin(x)) for x in frange(x_range[0], x_range[1] + step, step)]
+        return [math.sin(x) for x in frange(x_range[0], x_range[1] + step, step)]
 
 class SinGraphRandom(Graph):
     def __init__(self):
-        self.a = random.random() * 10
-        self.b = random.random() * 10
+        self.a = max(1, random.random() * 5)
+        self.b = max(random.random(), 0.2) * 2
 
         self.shift = random.random() * 2 * math.pi
 
     def generate(self, x_range=[- math.pi * 2 * 4, math.pi * 2 * 4], step=0.05):
-        return [(x, self.a * math.sin(self.b * (x + self.shift))) for x in frange(x_range[0], x_range[1] + step, step)]
+        return [self.a * math.sin(self.b * (x + self.shift)) for x in frange(x_range[0], x_range[1] + step, step)]
 
 
 if __name__  == "__main__":
