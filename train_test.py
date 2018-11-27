@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 from graph_gen import SinGraph
 
+# TODO: FIXME: check if we can improve this and set it globally instead of transfering some particular variables
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -22,8 +23,10 @@ class MyRNN(nn.Module):
 
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        #
+
+        # rnn layer
         self.rnn = rnn_type(input_size=1, hidden_size=hidden_size, num_layers=self.num_layers, dropout=dropout_rate)
+        # linear layer for regression
         self.out = nn.Linear(hidden_size, 1)
 
     def init_hidden_state(self, batch_size):
@@ -41,7 +44,7 @@ class MyRNN(nn.Module):
 
 class MyDataset(Dataset):
 
-    # split is an array of [(x0, y0), ... , (xn, yn)]
+    # split is an array of [x0, ... , x_end]
     def __init__(self, split, seq_length):
         self.split = split
         self.seq_length = seq_length
@@ -50,12 +53,13 @@ class MyDataset(Dataset):
         return len(self.split) - self.seq_length - 1
 
     def __getitem__(self, idx):
-            # [(x0 y0), (x1 y1), .., (xn yn)]
+            # [x0, .., xn]
             input = self.split[idx:idx + self.seq_length]
 
-            # xn+1 yn+1
+            # [x1, .., xn+1]
             output = self.split[idx+1:idx + self.seq_length+1]
 
+            # it is possible to return just one array and figure out target output from it
             return np.array(input, dtype='float32'), np.array(output, dtype='float32')
 
 
@@ -66,6 +70,7 @@ def train_model(model, dataloader, loss_function, optimizer, batch_size, epochs,
     time_total = 0
     for epoch in range(0,epochs):
         for x_batch, y_batch in dataloader:
+            # new batch - new data so re-init hidden state + null the grads
             model.init_hidden_state(batch_size)
             optimizer.zero_grad()
 
@@ -76,6 +81,7 @@ def train_model(model, dataloader, loss_function, optimizer, batch_size, epochs,
 
             start = time.time()
 
+            # backpropogate results for all the timesteps
             output = model(x_batch)
             loss = loss_function(output, y_batch)
             loss.backward()
@@ -103,6 +109,7 @@ def test_model(model, dataloader, init_sequence_length, show_time=False, show_gr
 
     final_outputs = []
 
+    # start with initial sequence
     output = model(initial_input)
     output = output[-1, :, :]
     final_outputs.append(output.cpu().data.squeeze_())
@@ -111,6 +118,7 @@ def test_model(model, dataloader, init_sequence_length, show_time=False, show_gr
     time_total = 0
     for _ in range(len(dataloader.dataset.split)-init_sequence_length):
         start = time.time()
+        # here we are using our current result as an input to get next one
         output = model(output)
         time_total += time.time() - start
 
